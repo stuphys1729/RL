@@ -1,19 +1,18 @@
 from MDP import MDP
 
 class BellmanDPSolver(object):
-	def __init__(self):
-		self.MDP = MDP()
+    def __init__(self):
+        self.MDP = MDP()
 
-	def initVs(self):
+    def initVs(self):
+        pass
 
-	def BellmanUpdate(self):
+    def BellmanUpdate(self):
+        raise NotImplementedError
 
-		raise NotImplementedError
-		
 if __name__ == '__main__':
-	solution = BellmanDPSolver()
-	for i in range(20000):
-		values, policy = solution.BellmanUpdate()
-	print("Values : ", values)
-	print("Policy : ", policy)
-
+    solution = BellmanDPSolver()
+    for i in range(20000):
+        values, policy = solution.BellmanUpdate()
+    print("Values : ", values)
+    print("Policy : ", policy)
