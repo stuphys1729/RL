@@ -4,34 +4,80 @@
 from DiscreteHFO.HFOAttackingPlayer import HFOAttackingPlayer
 from DiscreteHFO.Agent import Agent
 import argparse
+from collections import defaultdict
+import numpy as np
 
 class MonteCarloAgent(Agent):
 	def __init__(self, discountFactor, epsilon, initVals=0.0):
 		super(MonteCarloAgent, self).__init__()
 
+		self.S = [(x,y) for x in range(5) for y in range(6)]
+		self.S.append("GOAL")
+		self.S.append("OUT")
+
+		self.discountFactor = discountFactor
+		self.setEpsilon(epsilon)
+		self.Q = defaultdict(float)
+		self.returns = defaultdict(list)
+		self.policy = {s:"DRIBBLE_RIGHT" for s in self.S}
+		self.visits = []
+		self.experiences = []
+		self.curState = (-1, -1) # So this will error out obviously if it bleeds through
+
 	def learn(self):
-		raise NotImplementedError
+		G = 0
+		updates = []
+		visits = set()
+		while len(self.experiences) != 0:
+			state, action = self.visits.pop()
+			reward, status, nextState = self.experiences.pop()
+			G = self.discountFactor*G + reward
+			if (state, action) not in self.visits:
+				visits.add( (state, action) )
+				self.returns[(state, action)].append(G)
+				self.Q[(state, action)] = np.mean(self.returns[(state, action)])
+
+				best = "DRIBBLE_UP"; val = -10
+				for newAction in self.possibleActions:
+					if self.Q[(state, newAction)] > val:
+						val = self.Q[(state, newAction)]
+						best = newAction
+
+				self.policy[state] = best
+				updates.append(self.Q[(state, action)])
+
+		return (self.Q, updates[::-1])
 
 	def toStateRepresentation(self, state):
-		raise NotImplementedError
+		# State comes in as the player's position and the opponent position
+		# We are guaranteed that the opponent will not move so we just need
+		# the first position
+		return state[0]
 
 	def setExperience(self, state, action, reward, status, nextState):
-		raise NotImplementedError
+		self.visits.append( (state, action) )
+		self.experiences.append( (reward, status, nextState) )
 
 	def setState(self, state):
-		raise NotImplementedError
+		self.curState = state
 
 	def reset(self):
-		raise NotImplementedError
+		self.visits = []
+		self.experiences = []
+		self.curState = (-1, -1)
 
 	def act(self):
-		raise NotImplementedError
+		greedy = self.policy[self.curState]
+		if np.random.random() < (1 - self.epsilon + self.epsilon/len(self.possibleActions)):
+			return greedy
+		else:
+			return np.random.choice([a for a in self.possibleActions if a != greedy])
 
 	def setEpsilon(self, epsilon):
-		raise NotImplementedError
+		self.epsilon = epsilon
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		raise NotImplementedError
+		return 0.1 # Not sure how to change this as of yet
 
 
 if __name__ == '__main__':
