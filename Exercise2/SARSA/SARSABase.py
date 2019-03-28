@@ -4,37 +4,70 @@
 from DiscreteHFO.HFOAttackingPlayer import HFOAttackingPlayer
 from DiscreteHFO.Agent import Agent
 import argparse
+import numpy as np
+from collections import defaultdict
 
 class SARSAAgent(Agent):
 	def __init__(self, learningRate, discountFactor, epsilon, initVals=0.0):
 		super(SARSAAgent, self).__init__()
 
-	def learn(self):
-		raise NotImplementedError
+		self.S = [(x,y) for x in range(5) for y in range(6)]
+		self.S.append("GOAL")
+		self.S.append("OUT_OF_BOUNDS")
 
-	def act(self):
-		raise NotImplementedError
+		self.discountFactor = discountFactor
+		self.setEpsilon(epsilon)
+		self.setLearningRate(learningRate)
+		self.Q = defaultdict(float)
+		self.policy = {s:"DRIBBLE_RIGHT" for s in self.S}
+		self.experiences = []
+		self.curState = (1, 1) # arbitrary
+
+	def learn(self):
+
+		s, a, r, sP = self.experiences.pop(0)
+		aP = self.experiences[0][1]
+
+		before = self.Q[(s, a)]
+		self.Q[(s, a)] = self.Q[(s, a)] + self.learningRate*(r + self.discountFactor*self.Q[(sP, aP)] - self.Q[(s, a)])
+
+		return self.Q[(s, a)] - before
+
+			
+	def act(self): # Use epsilon-greedy
+		greedy = self.policy[self.curState]
+		if np.random.random() < (1 - self.epsilon + self.epsilon/len(self.possibleActions)):
+			return greedy
+		else:
+			return np.random.choice([a for a in self.possibleActions if a != greedy])
 
 	def setState(self, state):
-		raise NotImplementedError
+		self.state = state
 
 	def setExperience(self, state, action, reward, status, nextState):
-		raise NotImplementedError
+		self.experiences.append( (state, action, reward, nextState) )
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		raise NotImplementedError
+		#learningRate = 0.1 static I think?
+		#epsilon = 0.01? maybe decay?
+
+		# returned as learningRate, epsilon
+		return 0.1, 0.1
 
 	def toStateRepresentation(self, state):
-		raise NotImplementedError
+		# State comes in as the player's position and the opponent position
+		# We are guaranteed that the opponent will not move so we just need
+		# the first position
+		return state[0]
 
 	def reset(self):
-		raise NotImplementedError
+		self.experiences = []
 
 	def setLearningRate(self, learningRate):
-		raise NotImplementedError
+		self.learningRate = learningRate
 
 	def setEpsilon(self, epsilon):
-		raise NotImplementedError
+		self.epsilon = epsilon
 
 if __name__ == '__main__':
 
@@ -52,7 +85,7 @@ if __name__ == '__main__':
 	hfoEnv.connectToServer()
 
 	# Initialize a SARSA Agent
-	agent = SARSAAgent(0.1, 0.99)
+	agent = SARSAAgent(0.1, 0.99, 0.1)
 
 	# Run training using SARSA
 	numTakenActions = 0 
@@ -75,7 +108,7 @@ if __name__ == '__main__':
 			numTakenActions += 1
 
 			nextObservation, reward, done, status = hfoEnv.step(action)
-			print(obsCopy, action, reward, nextObservation)
+			#print(obsCopy, action, reward, nextObservation)
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			
 			if not epsStart :
