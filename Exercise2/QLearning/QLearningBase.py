@@ -4,38 +4,68 @@
 from DiscreteHFO.HFOAttackingPlayer import HFOAttackingPlayer
 from DiscreteHFO.Agent import Agent
 import argparse
+import numpy as np
+from collections import defaultdict
 
 class QLearningAgent(Agent):
 	def __init__(self, learningRate, discountFactor, epsilon, initVals=0.0):
 		super(QLearningAgent, self).__init__()
 		
+		self.S = [(x,y) for x in range(5) for y in range(6)]
+		self.S.append("GOAL")
+		self.S.append("OUT_OF_BOUNDS")
+
+		self.discountFactor = discountFactor
+		self.setEpsilon(epsilon)
+		self.setLearningRate(learningRate)
+		self.Q = defaultdict(float)
+		self.policy = {s:"DRIBBLE_RIGHT" for s in self.S}
+		self.experience = None
+		self.curState = (1, 1) # arbitrary
 
 	def learn(self):
-		raise NotImplementedError
+		s, a, r, sP = self.experience
+		before = self.Q[(s, a)]
+
+		val = -10
+		for action in self.possibleActions:
+			val = max(val, self.Q[(sP, action)])
+
+		self.Q[(s, a)] += self.learningRate * (r + self.discountFactor*val - self.Q[(s, a)])
+
+		return self.Q[(s, a)]
 
 	def act(self):
-		raise NotImplementedError
+		greedy = self.policy[self.curState]
+		if np.random.random() < (1 - self.epsilon + self.epsilon/len(self.possibleActions)):
+			return greedy
+		else:
+			return np.random.choice([a for a in self.possibleActions if a != greedy])
 
 	def toStateRepresentation(self, state):
-		raise NotImplementedError
+		# State comes in as the player's position and the opponent position
+		# We are guaranteed that the opponent will not move so we just need
+		# the first position
+		return state[0]
 
 	def setState(self, state):
-		raise NotImplementedError
+		self.state = state
 
 	def setExperience(self, state, action, reward, status, nextState):
-		raise NotImplementedError
+		self.experience = (state, action, reward, nextState)
 
 	def setLearningRate(self, learningRate):
-		raise NotImplementedError
+		self.learningRate = learningRate
 
 	def setEpsilon(self, epsilon):
-		raise NotImplementedError
+		self.epsilon = epsilon
 
 	def reset(self):
-		raise NotImplementedError
+		self.experience = None
 		
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		raise NotImplementedError
+		# returned as learningRate, epsilon
+		return 0.1, 0.1
 
 if __name__ == '__main__':
 
