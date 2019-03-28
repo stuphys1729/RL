@@ -13,7 +13,7 @@ class MonteCarloAgent(Agent):
 
 		self.S = [(x,y) for x in range(5) for y in range(6)]
 		self.S.append("GOAL")
-		self.S.append("OUT")
+		self.S.append("OUT_OF_BOUNDS")
 
 		self.discountFactor = discountFactor
 		self.setEpsilon(epsilon)
@@ -77,7 +77,14 @@ class MonteCarloAgent(Agent):
 		self.epsilon = epsilon
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		return 0.1 # Not sure how to change this as of yet
+		#return max((5000-episodeNumber)/5000, 0.01)
+		return 0.1
+
+		#	dF		e		goals
+		#	0.99	0.1		3648
+		#	0.9		0.07	1138
+		#	0.9		0.1		2919
+		#	0.99	var		1934
 
 
 if __name__ == '__main__':
