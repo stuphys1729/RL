@@ -118,4 +118,6 @@ if __name__ == '__main__':
 		cumulativeReward += totalReward
 		if episode % 100 == 0:
 			print(cumulativeReward, episode)
+
+	print("Total Reward after {} episodes: {}".format(numEpisodes, cumulativeReward))
 				

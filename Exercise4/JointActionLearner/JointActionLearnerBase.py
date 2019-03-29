@@ -79,7 +79,12 @@ class JointQLearningAgent(Agent):
 		# rawState comes in as rawState[0] being the positions of both agents
 		# and rawState[2][0] being the position of the ball
 		# and rawState[1][0] being the position of the defender which does not change
-		return (tuple(rawState[0][0]), tuple(rawState[0][1]), tuple(rawState[2][0]))
+		try:
+			state = (tuple(rawState[0][0]), tuple(rawState[0][1]), tuple(rawState[2][0]))
+		except IndexError as e:
+			print(state)
+			raise e
+		return state
 		
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
 		return max((5000-episodeNumber)/10000, 0.1), max((5000-episodeNumber)/5000, 0.1)
@@ -138,3 +143,5 @@ if __name__ == '__main__':
 		cumulativeReward += totalReward
 		if episode % 100 == 0:
 			print(cumulativeReward, episode)
+
+	print("Total Reward after {} episodes: {}".format(numEpisodes, cumulativeReward))
