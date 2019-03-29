@@ -7,34 +7,73 @@ from DiscreteMARLUtils.Environment import DiscreteMARLEnvironment
 from DiscreteMARLUtils.Agent import Agent
 from copy import deepcopy
 import argparse
+import numpy as np
+from collections import defaultdict
 		
 class IndependentQLearningAgent(Agent):
 	def __init__(self, learningRate, discountFactor, epsilon, initVals=0.0):
 		super(IndependentQLearningAgent, self).__init__()
 
+		S = [(x,y) for x in range(5) for y in range(6)]
+		self.S = [(s1, s2) for s1 in S for s2 in S]
+		self.S.append("GOAL")
+		self.S.append("OUT_OF_BOUNDS")
+
+		self.discountFactor = discountFactor
+		self.setEpsilon(epsilon)
+		self.setLearningRate(learningRate)
+		self.Q = defaultdict(float)
+		self.policy = {s:"DRIBBLE_RIGHT" for s in self.S}
+		self.experience = None
+		self.curState = (1, 1) # arbitrary
+
 	def setExperience(self, state, action, reward, status, nextState):
-		raise NotImplementedError
+		self.experience = (state, action, reward, nextState)
 	
 	def learn(self):
-		raise NotImplementedError
+		s, a, r, sP = self.experience
+		before = self.Q[(s, a)]
+
+		val = -10
+		for action in self.possibleActions:
+			val = max(val, self.Q[(sP, action)])
+
+		self.Q[(s, a)] += self.learningRate * (r + self.discountFactor*val - self.Q[(s, a)])
+
+		return self.Q[(s, a)] - before
 
 	def act(self):
-		raise NotImplementedError
+		best = "DRIBBLE_RIGHT"; val = -10
+		for newAction in self.possibleActions:
+			if self.Q[(self.curState, newAction)] > val:
+				val = self.Q[(self.curState, newAction)]
+				best = newAction
+
+		if np.random.random() < (1 - self.epsilon + self.epsilon/len(self.possibleActions)):
+			return best
+		else:
+			return np.random.choice([a for a in self.possibleActions if a != best])
 
 	def toStateRepresentation(self, state):
-		raise NotImplementedError
+		if state == "GOAL" or state == "OUT_OF_BOUNDS":
+			return state
+		# State comes in as state[0] being the positions of both agents
+		# and state[2][0] being the position of the ball
+		# and state[1][0] being the position of the defender which does not change
+		return (tuple(state[0][0]), tuple(state[0][1]), tuple(state[2][0]))
 
 	def setState(self, state):
-		raise NotImplementedError
+		self.curState = state
 
 	def setEpsilon(self, epsilon):
-		raise NotImplementedError
+		self.epsilon = epsilon
 		
 	def setLearningRate(self, learningRate):
-		raise NotImplementedError
+		self.learningRate = learningRate
 		
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		raise NotImplementedError
+		return max((5000-episodeNumber)/10000, 0.1), max((5000-episodeNumber)/5000, 0.1)
+		#return 0.1, 0.1
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -52,6 +91,7 @@ if __name__ == '__main__':
 
 	numEpisodes = args.numEpisodes
 	numTakenActions = 0
+	cumulativeReward = 0
 	for episode in range(numEpisodes):	
 		status = ["IN_GAME","IN_GAME","IN_GAME"]
 		observation = MARLEnv.reset()
@@ -72,6 +112,7 @@ if __name__ == '__main__':
 				actions.append(agents[agentIdx].act())
 			numTakenActions += 1
 			nextObservation, reward, done, status = MARLEnv.step(actions)
+			totalReward += reward[0]
 
 			for agentIdx in range(args.numAgents):
 				agents[agentIdx].setExperience(agent.toStateRepresentation(stateCopies[agentIdx]), actions[agentIdx], reward[agentIdx], 
@@ -79,4 +120,8 @@ if __name__ == '__main__':
 				agents[agentIdx].learn()
 				
 			observation = nextObservation
+
+		cumulativeReward += totalReward
+		if episode % 100 == 0:
+			print(cumulativeReward, episode)
 				
