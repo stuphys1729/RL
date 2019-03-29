@@ -8,34 +8,81 @@ from DiscreteMARLUtils.Agent import Agent
 from copy import deepcopy
 import itertools
 import argparse
+import numpy as np
+from collections import defaultdict
 		
 class JointQLearningAgent(Agent):
 	def __init__(self, learningRate, discountFactor, epsilon, numTeammates, initVals=0.0):
-		super(JointQLearningAgent, self).__init__()	
+		super(JointQLearningAgent, self).__init__()
+
+		self.discountFactor = discountFactor
+		self.setEpsilon(epsilon)
+		self.setLearningRate(learningRate)
+		self.Q = defaultdict(float)
+		self.experience = None
+		self.curState = (1, 1) # arbitrary
+		self.C = defaultdict(int)
+		self.nS = 1 # stops division by zero
 
 	def setExperience(self, state, action, oppoActions, reward, status, nextState):
-		raise NotImplementedError
+		self.experience = (state, action, oppoActions[0], reward, nextState)
 		
 	def learn(self):
-		raise NotImplementedError
+		s, myA, tA, r, sP = self.experience
+		before = self.Q[(s, myA, tA)]
+
+		val = -10
+		for myAction in self.possibleActions:
+			actionVal = 0
+			for theirAction in self.possibleActions:
+				prob = self.C[sP, theirAction] / self.nS
+				actionVal += prob * self.Q[(sP, myAction, theirAction)]
+			val = max(val, actionVal)
+
+		self.Q[(s, myA, tA)] += self.learningRate * (r + self.discountFactor*val - self.Q[(s, myA, tA)])
+
+		self.C[s, tA] += 1
+		self.nS += 1
+
+		return self.Q[(s, myA, tA)] - before
 
 	def act(self):
-		raise NotImplementedError
+		best = "DRIBBLE_RIGHT"; val = -10
+		for myAction in self.possibleActions:
+
+			actionVal = 0
+			for theirAction in self.possibleActions:
+				prob = self.C[self.curState, theirAction] / self.nS
+				actionVal += prob * self.Q[(self.curState, myAction, theirAction)]
+
+			if actionVal > val:
+				val = actionVal
+				best = myAction
+		
+		if np.random.random() < (1 - self.epsilon + self.epsilon/len(self.possibleActions)):
+			return best
+		else:
+			return np.random.choice([a for a in self.possibleActions if a != best])
 
 	def setEpsilon(self, epsilon) :
-		raise NotImplementedError
+		self.epsilon = epsilon
 		
 	def setLearningRate(self, learningRate) :
-		raise NotImplementedError
+		self.learningRate = learningRate
 
 	def setState(self, state):
-		raise NotImplementedError
+		self.curState = state
 
 	def toStateRepresentation(self, rawState):
-		raise NotImplementedError
+		if rawState == "GOAL" or rawState == "OUT_OF_BOUNDS":
+			return rawState
+		# rawState comes in as rawState[0] being the positions of both agents
+		# and rawState[2][0] being the position of the ball
+		# and rawState[1][0] being the position of the defender which does not change
+		return (tuple(rawState[0][0]), tuple(rawState[0][1]), tuple(rawState[2][0]))
 		
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		raise NotImplementedError
+		return max((5000-episodeNumber)/10000, 0.1), max((5000-episodeNumber)/5000, 0.1)
 
 if __name__ == '__main__':
 
@@ -56,10 +103,11 @@ if __name__ == '__main__':
 
 	numEpisodes = numEpisodes
 	numTakenActions = 0
-
+	cumulativeReward = 0
 	for episode in range(numEpisodes):	
 		status = ["IN_GAME","IN_GAME","IN_GAME"]
 		observation = MARLEnv.reset()
+		totalReward = 0.0
 			
 		while status[0]=="IN_GAME":
 			for agent in agents:
@@ -76,6 +124,7 @@ if __name__ == '__main__':
 
 			nextObservation, reward, done, status = MARLEnv.step(actions)
 			numTakenActions += 1
+			totalReward += reward[0]
 
 			for agentIdx in range(args.numAgents):
 				oppoActions = actions.copy()
@@ -85,3 +134,7 @@ if __name__ == '__main__':
 				agents[agentIdx].learn()
 				
 			observation = nextObservation
+		
+		cumulativeReward += totalReward
+		if episode % 100 == 0:
+			print(cumulativeReward, episode)
