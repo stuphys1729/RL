@@ -35,24 +35,27 @@ class SARSAAgent(Agent):
 
 			
 	def act(self): # Use epsilon-greedy
-		greedy = self.policy[self.curState]
+		best = "DRIBBLE_RIGHT"; val = -10
+		for newAction in self.possibleActions:
+			if self.Q[(self.curState, newAction)] > val:
+				val = self.Q[(self.curState, newAction)]
+				best = newAction
 		if np.random.random() < (1 - self.epsilon + self.epsilon/len(self.possibleActions)):
-			return greedy
+			return best
 		else:
-			return np.random.choice([a for a in self.possibleActions if a != greedy])
+			return np.random.choice([a for a in self.possibleActions if a != best])
 
 	def setState(self, state):
-		self.state = state
+		self.curState = state
 
 	def setExperience(self, state, action, reward, status, nextState):
 		self.experiences.append( (state, action, reward, nextState) )
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		#learningRate = 0.1 static I think?
-		#epsilon = 0.01? maybe decay?
 
 		# returned as learningRate, epsilon
-		return 0.1, 0.1
+		return max((500-episodeNumber)/1000, 0.1), max((500-episodeNumber)/500, 0.1)
+		#return 0.5, 0.1
 
 	def toStateRepresentation(self, state):
 		# State comes in as the player's position and the opponent position
@@ -108,7 +111,7 @@ if __name__ == '__main__':
 			numTakenActions += 1
 
 			nextObservation, reward, done, status = hfoEnv.step(action)
-			#print(obsCopy, action, reward, nextObservation)
+			print(obsCopy, action, reward, nextObservation)
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			
 			if not epsStart :
