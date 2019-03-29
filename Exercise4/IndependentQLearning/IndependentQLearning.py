@@ -14,16 +14,10 @@ class IndependentQLearningAgent(Agent):
 	def __init__(self, learningRate, discountFactor, epsilon, initVals=0.0):
 		super(IndependentQLearningAgent, self).__init__()
 
-		S = [(x,y) for x in range(5) for y in range(6)]
-		self.S = [(s1, s2) for s1 in S for s2 in S]
-		self.S.append("GOAL")
-		self.S.append("OUT_OF_BOUNDS")
-
 		self.discountFactor = discountFactor
 		self.setEpsilon(epsilon)
 		self.setLearningRate(learningRate)
 		self.Q = defaultdict(float)
-		self.policy = {s:"DRIBBLE_RIGHT" for s in self.S}
 		self.experience = None
 		self.curState = (1, 1) # arbitrary
 
